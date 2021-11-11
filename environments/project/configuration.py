@@ -141,11 +141,16 @@ def create_elastic_search_index_configuration(lang, analyzer, decompound_word_li
         search_analyzer = "dutch_dictionary_decompound"
     # We first create a basic configuration without decompound dictionaries
     # Once AWS fixes problems with decompound dictionaries these can be included always
+    title_analyzer = {
+        'dutch': 'dutch_ngram',
+        'english': 'english_ngram'
+    }
     configuration = {
         "settings": {
             "index": {
                 "number_of_shards": 1,
-                "number_of_replicas": 0
+                "number_of_replicas": 0,
+                "max_ngram_diff": 8
             },
             "analysis": {
                 "analyzer": {
@@ -157,6 +162,28 @@ def create_elastic_search_index_configuration(lang, analyzer, decompound_word_li
                     "folding": {
                         "tokenizer": "standard",
                         "filter":  ["lowercase", "asciifolding"]
+                    },
+                    "dutch_ngram": {
+                        "tokenizer":  "standard",
+                        "filter": [
+                            "n_gram",
+                            "lowercase",
+                            "dutch_stop",
+                            "dutch_keywords",
+                            "dutch_override",
+                            "dutch_stemmer"
+                        ]
+                    },
+                    "english_ngram": {
+                        "tokenizer":  "standard",
+                        "filter": [
+                            "n_gram",
+                            "english_possessive_stemmer",
+                            "lowercase",
+                            "english_stop",
+                            "english_keywords",
+                            "english_stemmer"
+                        ]
                     }
                 },
                 "filter": {
@@ -168,6 +195,40 @@ def create_elastic_search_index_configuration(lang, analyzer, decompound_word_li
                         "type": "shingle",
                         "min_shingle_size": 2,
                         "max_shingle_size": 3
+                    },
+                    "dutch_keywords": {
+                        "type":       "keyword_marker",
+                        "keywords":   []
+                    },
+                    "dutch_stemmer": {
+                        "type":       "stemmer",
+                        "language":   "dutch"
+                    },
+                    "dutch_override": {
+                        "type":       "stemmer_override",
+                        "rules": []
+                    },
+                    "english_stop": {
+                        "type":       "stop",
+                        "stopwords":  "_english_"
+                    },
+                    "english_keywords": {
+                        "type":       "keyword_marker",
+                        "keywords":   []
+                    },
+                    "english_stemmer": {
+                        "type":       "stemmer",
+                        "language":   "english"
+                    },
+                    "english_possessive_stemmer": {
+                        "type":       "stemmer",
+                        "language":   "possessive_english"
+                    },
+                    "n_gram": {
+                        "type": "ngram",
+                        "min_gram": 2,
+                        "max_gram": 10,
+                        "preserve_original": True
                     }
                 }
             }
@@ -179,7 +240,7 @@ def create_elastic_search_index_configuration(lang, analyzer, decompound_word_li
                     'fields': {
                         'analyzed': {
                             'type': 'text',
-                            'analyzer': analyzer,
+                            'analyzer': title_analyzer.get(analyzer, "standard"),
                             'search_analyzer': search_analyzer,
                         },
                         'folded': {
